@@ -458,6 +458,22 @@ public extension Feedback {
     })
   }
 
+  func pullback<GlobalState, GlobalEvent, GlobalDependency>(
+    state stateKeyPath: KeyPath<GlobalState, State>,
+    event eventCasePath: CasePath<GlobalEvent, Event>
+  ) -> Feedback<GlobalState, GlobalEvent, GlobalDependency> where Dependency == Void {
+    return Feedback<GlobalState, GlobalEvent, GlobalDependency>(events: { state, consumer, dependency in
+      let state = state.map {
+        ($0[keyPath: stateKeyPath], $1.flatMap(eventCasePath.extract(from:)))
+      }.eraseToAnyPublisher()
+      return self.events(
+        state,
+        consumer.pullback(eventCasePath.embed),
+        ()
+      )
+    })
+  }
+
   /// Transforms a Feedback that works on local state, event, and dependency into one that works on
   /// global state, action and dependency. It accomplishes this by providing 3 transformations to
   /// the method:
@@ -491,6 +507,60 @@ public extension Feedback {
         state,
         consumer.pullback(eventCasePath.embed),
         toLocal(dependency)
+      )
+    })
+  }
+
+  func pullback<GlobalState, GlobalEvent, GlobalDependency>(
+    state stateCasePath: CasePath<GlobalState, State>,
+    event eventCasePath: CasePath<GlobalEvent, Event>
+  ) -> Feedback<GlobalState, GlobalEvent, GlobalDependency> where Dependency == Void {
+    return Feedback<GlobalState, GlobalEvent, GlobalDependency>(events: { state, consumer, dependency in
+      let state: AnyPublisher<(State, Event?), Never> = state.compactMap { (stateAndEvent: (GlobalState, GlobalEvent?)) -> (State, Event?)? in
+        guard let localState = stateCasePath.extract(from: stateAndEvent.0) else {
+          return nil
+        }
+        return (localState, stateAndEvent.1.flatMap(eventCasePath.extract(from:)))
+      }.eraseToAnyPublisher()
+      return self.events(
+        state,
+        consumer.pullback(eventCasePath.embed),
+        ()
+      )
+    })
+  }
+
+  func pullback<GlobalState, GlobalEvent, GlobalDependency>(
+    state localState: @escaping (GlobalState) -> State?,
+    event eventCasePath: CasePath<GlobalEvent, Event>,
+    dependency toLocalDependency: @escaping (GlobalDependency) -> Dependency
+  ) -> Feedback<GlobalState, GlobalEvent, GlobalDependency> {
+    return Feedback<GlobalState, GlobalEvent, GlobalDependency>(events: { state, consumer, dependency in
+      let state = state.compactMap { (state, event) -> (State, Event?)? in
+        guard let localState = localState(state) else { return nil }
+        return (localState, event.flatMap(eventCasePath.extract(from:)))
+      }.eraseToAnyPublisher()
+      return self.events(
+        state,
+        consumer.pullback(eventCasePath.embed),
+        toLocalDependency(dependency)
+      )
+    })
+  }
+
+  func pullback<GlobalState, GlobalEvent, GlobalDependency>(
+    state localState: @escaping (GlobalState) -> State?,
+    event eventCasePath: CasePath<GlobalEvent, Event>
+  ) -> Feedback<GlobalState, GlobalEvent, GlobalDependency> where Dependency == Void {
+    return Feedback<GlobalState, GlobalEvent, GlobalDependency>(events: { state, consumer, dependency in
+      let state = state.compactMap { (state, event) -> (State, Event?)? in
+        guard let localState = localState(state) else { return nil }
+        return (localState, event.flatMap(eventCasePath.extract(from:)))
+      }.eraseToAnyPublisher()
+      return self.events(
+        state,
+        consumer.pullback(eventCasePath.embed),
+        ()
       )
     })
   }
