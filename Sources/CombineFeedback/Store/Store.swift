@@ -31,6 +31,15 @@ open class Store<State, Event> {
     )
   }
 
+  public convenience init<Dependency>(
+    initial: State,
+    feedback: Feedback<State, Event, Dependency>,
+    reducer: Reducer<State, Event>,
+    dependency: Dependency
+  ) {
+    self.init(initial: initial, feedbacks: [feedback], reducer: reducer, dependency: dependency)
+  }
+
   @MainActor func context(
     removeDuplicates isDuplicate: @escaping (State, State) -> Bool
   ) -> ViewContext<State, Event> {
