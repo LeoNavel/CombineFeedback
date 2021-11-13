@@ -280,6 +280,7 @@ public struct Feedback<State, Event, Dependency> {
           }
           return temp
         }
+        .removeDuplicates { $0.lastWasNil == $1.lastWasNil }
         .compactMap(\.output)
         .eraseToAnyPublisher()
       },
