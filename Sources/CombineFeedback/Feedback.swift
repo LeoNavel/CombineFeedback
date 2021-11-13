@@ -75,6 +75,22 @@ public struct Feedback<State, Event, Dependency> {
     }
   }
 
+  public static func compacting<U, Effect: Publisher>(
+    _ transform: @escaping (AnyPublisher<(State, Event), Never>) -> AnyPublisher<U, Never>,
+    effects: @escaping (U, Dependency) -> Effect
+  ) -> Feedback where Effect.Output == Event, Effect.Failure == Never {
+    custom { state, output, dependency in
+      // NOTE: `observe(on:)` should be applied on the inner producers, so
+      //       that cancellation due to state changes would be able to
+      //       cancel outstanding events that have already been scheduled.
+      transform(state.compactMap { state, event -> (State, Event)? in
+        guard let event = event else { return nil }
+        return (state, event)
+      }.eraseToAnyPublisher())
+        .flatMapLatest { effects($0, dependency).enqueue(to: output) }
+    }
+  }
+
   /// Creates a Feedback which re-evaluates the given effect every time the
   /// state changes, and the transform consequentially yields a new value
   /// distinct from the last yielded value.
@@ -353,18 +369,7 @@ public struct Feedback<State, Event, Dependency> {
   public static func middleware<Effect: Publisher>(
     _ effects: @escaping (State, Event, Dependency) -> Effect
   ) -> Feedback where Effect.Output == Event, Effect.Failure == Never {
-    custom { state, output, dependency in
-      state.compactMap { s, e -> (State, Event)? in
-        guard let e = e else {
-          return nil
-        }
-        return (s, e)
-      }
-      .flatMapLatest {
-        effects($0, $1, dependency)
-          .enqueue(to: output)
-      }
-    }
+    compacting({ $0 }, effects: { effects($0.0, $0.1, $1) })
   }
 
   /// Redux like Middleware signature Feedback factory method that lets you perform side effects when state changes, also knowing which event cased it
