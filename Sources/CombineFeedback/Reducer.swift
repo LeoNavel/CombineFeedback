@@ -54,6 +54,19 @@ public struct Reducer<State, Event> {
     }
   }
 
+  public func pullback<GlobalState, GlobalEvent>(
+    event getLocalEvent: @escaping (GlobalEvent) -> Event?,
+    state getLocalState: @escaping (GlobalState, GlobalEvent) -> State?,
+    updateState: @escaping (inout GlobalState, GlobalEvent, State) -> Void
+  ) -> Reducer<GlobalState, GlobalEvent> {
+    Reducer<GlobalState, GlobalEvent> { globalState, globalEvent in
+      guard let localEvent = getLocalEvent(globalEvent),
+            var localState = getLocalState(globalState, globalEvent) else { return }
+      reduce(&localState, localEvent)
+      updateState(&globalState, globalEvent, localState)
+    }
+  }
+
   public func optional() -> Reducer<State?, Event> {
     return .init { state, event in
       if state == nil {
