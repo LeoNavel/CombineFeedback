@@ -40,6 +40,28 @@ open class Store<State, Event> {
     self.init(initial: initial, feedbacks: [feedback], reducer: reducer, dependency: dependency)
   }
 
+
+  public init(
+    initial: State,
+    feedbacks: [Feedback<State, Event, Void>],
+    reducer: Reducer<State, Event>
+  ) {
+    self.box = RootStoreBox(
+      initial: initial,
+      feedbacks: feedbacks,
+      reducer: reducer,
+      dependency: ()
+    )
+  }
+
+  public convenience init(
+    initial: State,
+    feedback: Feedback<State, Event, Void>,
+    reducer: Reducer<State, Event>
+  ) {
+    self.init(initial: initial, feedbacks: [feedback], reducer: reducer, dependency: ())
+  }
+
   @MainActor func context(
     removeDuplicates isDuplicate: @escaping (State, State) -> Bool
   ) -> ViewContext<State, Event> {
