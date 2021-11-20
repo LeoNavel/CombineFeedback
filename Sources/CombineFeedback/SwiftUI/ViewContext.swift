@@ -82,4 +82,16 @@ public final class ViewContext<State, Event>: ObservableObject {
       self.send(event: event)
     }
   }
+
+  public func action<T>(for event: @escaping (T) -> Event) -> (T) -> Void {
+    return {
+      self.send(event: event($0))
+    }
+  }
+
+  public func action<T>(for event: Event) -> (T) -> Void {
+    return { _ in
+      self.send(event: event)
+    }
+  }
 }
