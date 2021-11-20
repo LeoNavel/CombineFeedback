@@ -55,6 +55,28 @@ public final class ViewContext<State, Event>: ObservableObject {
     )
   }
 
+  public func binding<U>(for value: @escaping (State) -> U, event: @escaping (U) -> Event) -> Binding<U> {
+    return Binding(
+      get: {
+        value(self.state)
+      },
+      set: {
+        self.send(event: event($0))
+      }
+    )
+  }
+
+  public func binding<U>(for value: @escaping (State) -> U, event: Event) -> Binding<U> {
+    return Binding(
+      get: {
+        value(self.state)
+      },
+      set: { _ in
+        self.send(event: event)
+      }
+    )
+  }
+
   public func action(for event: Event) -> () -> Void {
     return {
       self.send(event: event)
